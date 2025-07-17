@@ -68,7 +68,7 @@ async function scrapCredly(browser: Browser) {
 
 
 // Scrapping wallet badges
-async function scrapWallet(browser: Browser) {
+async function scrapAccredible(browser: Browser) {
 
     console.log("Starting wallet scrapping...");
 
@@ -252,12 +252,12 @@ async function main() {
         startProcess(scrapCredly)
     }
 
-    if (execArgv.includes("--wallet")) {
-        startProcess(scrapWallet)
+    if (execArgv.includes("--accredible")) {
+        startProcess(scrapAccredible)
     }
 
     if (processes.length <= 0) {
-        const COMMANDS = ['--credly', '--wallet'];
+        const COMMANDS = ['--credly', '--accredible'];
         console.log(`You should input at least of the social media to scrap:\n\n${COMMANDS.join('\n')}\n`);
         await browser.close();
         return;

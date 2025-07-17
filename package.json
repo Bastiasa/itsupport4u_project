@@ -8,5 +8,8 @@
     "@types/puppeteer": "^7.0.4",
     "cheerio": "^1.1.0",
     "puppeteer": "^24.14.0"
+  },
+  "devDependencies": {
+    "tsc": "^2.0.4"
   }
 }
