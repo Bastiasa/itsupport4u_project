@@ -1,0 +1,11 @@
+{
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsc && node ."
+  },
+  "dependencies": {
+    "@types/puppeteer": "^7.0.4",
+    "cheerio": "^1.1.0",
+    "puppeteer": "^24.14.0"
+  }
+}
