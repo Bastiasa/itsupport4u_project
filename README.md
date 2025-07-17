@@ -39,9 +39,9 @@ The goal is to extract certification data and export it to JSON files for use in
 
 ## Usage
 
-    ```
-    npm run dev [--credly] [--wallet] [--headless]
-    ```
+```
+npm run dev [--credly] [--wallet] [--headless]
+```
 
 ## Options
 
