@@ -1,6 +1,5 @@
 import puppeteer, { Browser } from "puppeteer";
 import fs from 'fs/promises';
-import { resolve } from "path";
 
 // Target websites
 const FARAZ_AHMAD_CREDLY = "https://www.credly.com/users/faraz-ahmad.a5935bd3/badges#credly";
