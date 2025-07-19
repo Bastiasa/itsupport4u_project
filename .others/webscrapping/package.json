@@ -1,0 +1,17 @@
+{
+  "name": "webscrapping",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsc && node dist/main.js"
+  },
+  "author": "Bastiasa",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/puppeteer": "^7.0.4",
+    "puppeteer": "^24.14.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}

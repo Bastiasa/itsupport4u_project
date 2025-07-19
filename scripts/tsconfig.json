@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ES6", // Código moderno pero ampliamente soportado
+        "module": "ESNext", // Usa módulos tipo ES para navegador moderno
+        "outDir": "../dist/scripts", // Carpeta donde se generará el JS
+        "rootDir": "./", // Carpeta donde están tus archivos TS
+        "strict": true, // Reglas estrictas (buena práctica)
+        "esModuleInterop": true, // Para importar módulos CommonJS si los usas
+        "moduleResolution": "bundler", // Para trabajar mejor con importaciones estilo web
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "noEmitOnError": true // No compila si hay errores
+    }
+}

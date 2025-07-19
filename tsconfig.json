@@ -1,22 +1,7 @@
 {
-    "compilerOptions": {
-        "target": "es2022", // Código moderno compatible con navegadores actuales
-        "module": "node16", // Usa módulos ES (import/export)
-        "moduleResolution": "node16", // Resolución de módulos para bundlers como Vite, esbuild, etc.
-        "outDir": "./dist", // Carpeta donde se colocará el JS compilado
-        "strict": true, // Activa todas las comprobaciones estrictas
-        "esModuleInterop": true, // Permite importar módulos CommonJS
-        "forceConsistentCasingInFileNames": true,
-        "skipLibCheck": true, // Omite comprobación de tipos en node_modules
-        "allowJs": true, // Permite incluir archivos .js si es necesario
-        "resolveJsonModule": true, // Permite importar archivos JSON
-        "sourceMap": true // Genera archivos .map para depuración
-    },
-    "include": [
-        "src/**/*"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
 }

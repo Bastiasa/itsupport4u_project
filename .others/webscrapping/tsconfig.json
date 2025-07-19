@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2022", // Soporta top-level await, async/await, etc.
+        "module": "NodeNext", // Compatible con import/export modernos
+        "moduleResolution": "NodeNext", // Para manejar .ts, .js, .mjs, .cjs adecuadamente
+        "esModuleInterop": true, // Permite importar módulos CommonJS
+        "forceConsistentCasingInFileNames": true,
+        "strict": true, // Activa todas las verificaciones estrictas
+        "skipLibCheck": true, // Más rápido, ignora chequeo de definiciones de librerías
+        "resolveJsonModule": true, // Permite importar JSON,
+        "rootDir": "./src",
+        "outDir": "./dist"
+    },
+    "include": [
+        "./src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

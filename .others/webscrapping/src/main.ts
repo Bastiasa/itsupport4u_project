@@ -1,26 +1,53 @@
-import puppeteer, { Browser } from "puppeteer";
+import { Browser } from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises';
+import path from "path";
+
+const OUTPUT_FOLDER = "output";
 
 // Target websites
 const FARAZ_AHMAD_CREDLY = "https://www.credly.com/users/faraz-ahmad.a5935bd3/badges#credly";
 const FARAZ_AHMAD_WALLET = "https://www.credential.net/profile/farazahmad283861/wallet";
+const ITSUPPORT_UPWORK = " https://www.upwork.com/agencies/1659142272213975040/modal-members-list-slider?pageTitle=Agency%20members&preventDismiss=false&_modalInfo=%5B%7B%22navType%22%3A%22slider%22,%22title%22%3A%22Agency%20members%22,%22modalId%22%3A%221752864750077%22,%22channelName%22%3A%22modal-members-list-slider%22,%22preventDismiss%22%3Afalse%7D%5D";
 
-// Classes of credly
+// Credly selectors
 const CREDLY_CERTIFICATION_CONTAINER_SELECTOR = ".Cardstyles__StyledContainer-fredly__sc-1yaakoz-0.fRJHRP.EarnedBadgeCardstyles__StyledCard-fredly__sc-gsqjwh-1.jwtiVz";
 const CREDLY_CERTIFICATION_IMAGE_SELECTOR = ".EarnedBadgeCardstyles__ImageContainer-fredly__sc-gsqjwh-0.dDMlBy"
 const CREDLY_CERTIFICATION_NAME_SELECTOR = ".Typographystyles__Container-fredly__sc-1jldzrm-0.enJnLg.EarnedBadgeCardstyles__BadgeNameText-fredly__sc-gsqjwh-7.hqrelZ"
 
-// Classes of Accredible
+// Accredible selectors
 const ACCREDIBLE_CERTIFICATION_CONTAINER_SELECTOR = ".wallet-container .tile-gallery .cdk-drop-list.tile.cdk-drop-list-disabled.ng-star-inserted"
 const ACCREDIBLE_CERTIFICATION_CUSTOM_CREDENTIAL_COVER_ELEMENT = ".custom-credential.ng-star-inserted.ng-lazyloaded"
 const ACCREDIBLE_CERTIFICATION_SCREENSHOT_COVER_SELECTOR = `${ACCREDIBLE_CERTIFICATION_CONTAINER_SELECTOR} .certificate.us-letter.default.landscape`;
 const ACCREDIBLE_CERTIFICATION_IMAGE_SELECTOR = `svg image, ${ACCREDIBLE_CERTIFICATION_CONTAINER_SELECTOR} img.ng-lazyloaded`;
 const ACCREDIBLE_CERTIFICATION_NAME_SELECTOR = ".details .mat-h3";
 const ACCREDIBLE_CERTIFICATION_LINK_SELECTOR = `${ACCREDIBLE_CERTIFICATION_CONTAINER_SELECTOR} a.ng-star-inserted`
+const ACCREDIBLE_COOKIES_BUTTON = ".mat-focus-indicator.outline-alt.mat-raised-button.mat-button-base.mat-accent"
+
+// Upwork selectors
+const UPWORK_MEMBER_CONTAINER_SELECTOR = ".air3-card-section.d-flex.flex-column.p-6x";
+const UPWORK_MEMBER_IMAGE_SELECTOR = `${UPWORK_MEMBER_CONTAINER_SELECTOR} img`;
+const UPWORK_MEMBER_NAME_SELECTOR = `${UPWORK_MEMBER_CONTAINER_SELECTOR} a.up-n-link.ellipsis`;
+
 
 // Arguments from the console
 const execArgv = process.argv.slice(2);
 
+// Patterns
+
+const MIME_TYPE_EXTENSION = /^[a-z]+\/([a-z]+)$/;
+
+
+// Check file existence
+async function exists(path: string) {
+    try {
+        await fs.access(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 // Scrapping Credly badges 
 async function scrapCredly(browser: Browser) {
@@ -39,7 +66,7 @@ async function scrapCredly(browser: Browser) {
     console.log("Credly website stuff loaded.");
 
     // Obtaining every badge
-    const badges = await page.$$eval(
+    const BADGES = await page.$$eval(
         CREDLY_CERTIFICATION_CONTAINER_SELECTOR,
         (elements, { imageClass, nameClass }) => {
             return elements.map(element => {
@@ -47,8 +74,8 @@ async function scrapCredly(browser: Browser) {
                 const NAME_ELEMENT = element.querySelector(nameClass) as HTMLSpanElement;
 
                 return {
-                    imageUrl: IMAGE_ELEMENT.src,
-                    badgeUrl: element.getAttribute("href")?.substring("/badges/".length),
+                    image: IMAGE_ELEMENT.src,
+                    id: element.getAttribute("href")?.substring("/badges/".length),
                     name: NAME_ELEMENT.textContent
                 };
             });
@@ -60,14 +87,73 @@ async function scrapCredly(browser: Browser) {
     );
 
     console.log("Credly scrapping finished.");
-    console.log(`${badges.length} badges were scrapped.`);
+    console.log(`${BADGES.length} badges were scrapped.`);
+
+    console.log("Downlading images...");
+
+    {
+        const CREDLY_IMAGES_FOLDER = path.join(OUTPUT_FOLDER, "credly_images");
+
+        if (await exists(CREDLY_IMAGES_FOLDER)) {
+            await fs.rm(CREDLY_IMAGES_FOLDER, { recursive: true });
+        }
+
+        await fs.mkdir(CREDLY_IMAGES_FOLDER);
+    }
+
+    const IMAGES_DOWNLOAD_PROMISES = BADGES.map((badge, index) => {
+
+        return new Promise<void>(async resolve => {
+
+            const response = await fetch(badge.image);
+
+            const mimeType = response.headers.get('content-type');
+            let extension = mimeType?.match(MIME_TYPE_EXTENSION)?.[1];
+
+            if (!extension) {
+                console.log(`The image ${badge.image} doesn't have an extension. Given mimetype: ${mimeType}`);
+
+                const URL_EXTENSION = badge.image.match(/^.*.(png|jpeg|jpg|gif|svg|webp)$/)?.[1];
+
+                if (URL_EXTENSION) {
+                    extension = URL_EXTENSION;
+                }
+            }
+
+            const fileName = `${badge.id}-${index}.${extension ?? "unknown"}`;
+            badge.image = fileName;
+
+            const blob = await response.blob();
+
+            await fs.writeFile(
+                path.join(OUTPUT_FOLDER, "credly_images", fileName),
+                Buffer.from(await blob.arrayBuffer()),
+                'binary'
+            );
+
+
+            resolve();
+        });
+
+    });
+
+
+    await Promise.all(IMAGES_DOWNLOAD_PROMISES);
+
+    console.log("Images downloaded.");
+
+
 
     // Saving badges in a JSON file
-    await fs.writeFile("webscrapping/credly_badges.json", JSON.stringify(badges), "utf8")
+    await fs.writeFile(
+        path.join(OUTPUT_FOLDER, "credly_badges.json"),
+        JSON.stringify(BADGES),
+        "utf8"
+    );
 }
 
 
-// Scrapping wallet badges
+// Scrapping Accredible badges
 async function scrapAccredible(browser: Browser) {
 
     console.log("Starting wallet scrapping...");
@@ -81,12 +167,16 @@ async function scrapAccredible(browser: Browser) {
 
 
     // Waiting for some elements to be loaded
+
+    await page.waitForSelector(ACCREDIBLE_COOKIES_BUTTON);
     await page.waitForSelector(ACCREDIBLE_CERTIFICATION_CONTAINER_SELECTOR);
     await page.waitForSelector(ACCREDIBLE_CERTIFICATION_IMAGE_SELECTOR);
     await page.waitForSelector(ACCREDIBLE_CERTIFICATION_NAME_SELECTOR);
     await page.waitForSelector(ACCREDIBLE_CERTIFICATION_LINK_SELECTOR);
 
     const BADGES_COUNT_STRING = await page.$eval('span[_ngcontent-ng-c2957083266]', el => el.textContent);
+
+    await page.click(ACCREDIBLE_COOKIES_BUTTON);
 
     // Looking the badges count upper label, if it's detected, then wait until the badges number is equivalent
     if (BADGES_COUNT_STRING) {
@@ -122,7 +212,7 @@ async function scrapAccredible(browser: Browser) {
 
     console.log("Wallet website loaded...");
 
-    type CertificationsData = { name: string, link: string, imageUrl: string | null | ":" };
+    type CertificationsData = { name: string, id: string, image: string | null | `:${string}` };
     type Certifications = (CertificationsData)[];
 
     let CERTIFICATIONS: Certifications = await page.$$eval(
@@ -142,12 +232,12 @@ async function scrapAccredible(browser: Browser) {
                     // Getting image url
                     // Images in Accredible are quirky to get
 
-                    let imageUrl: string | null = "";
+                    let image: string | null = "";
                     let imageElement = certificationContainer.querySelector(imageSelector);
 
                     if (imageElement != null) {
                         // Simple image getting
-                        imageUrl = imageElement.getAttribute('xlink:href') ?? imageElement.getAttribute("src");
+                        image = imageElement.getAttribute('xlink:href') ?? imageElement.getAttribute("src");
                     } else {
                         // If couldn't the simple way, then try a custom certification way
                         imageElement = certificationContainer.querySelector(customCoverSelector);
@@ -155,7 +245,7 @@ async function scrapAccredible(browser: Browser) {
                         if (imageElement != null) {
                             const BACKGROUND_IMAGE_PROPERTY = getComputedStyle(imageElement).backgroundImage;
                             const match = BACKGROUND_IMAGE_PROPERTY.match(/^url\(["']?(.*?)["']?\)$/);
-                            imageUrl = match ? match[1] : null;
+                            image = match ? match[1] : null;
 
                         } else {
 
@@ -168,7 +258,7 @@ async function scrapAccredible(browser: Browser) {
                                 const id = `screenshot-target-${index.toString(32)}`;
                                 console.log("ID of", imageElement, "setted to", id);
                                 imageElement.setAttribute("id", id);
-                                imageUrl = `:${id}`;
+                                image = `:${id}`;
 
 
                             }
@@ -177,8 +267,8 @@ async function scrapAccredible(browser: Browser) {
 
                     return {
                         name: NAME_ELEMENT?.textContent,
-                        link: LINK_ELEMENT.href.substring("https://www.credential.net/".length),
-                        imageUrl
+                        id: LINK_ELEMENT.href.substring("https://www.credential.net/".length),
+                        image
                     };
                 } catch (err) {
                     return null;
@@ -202,9 +292,9 @@ async function scrapAccredible(browser: Browser) {
     for (const index in CERTIFICATIONS) {
         const cert = CERTIFICATIONS[index];
 
-        if (cert.imageUrl?.startsWith(":")) {
+        if (cert.image?.startsWith(":")) {
 
-            const id = cert.imageUrl.substring(1);
+            const id = cert.image.substring(1);
             const foundElement = await page.$(`#${id}`);
 
             if (foundElement == null) {
@@ -213,7 +303,7 @@ async function scrapAccredible(browser: Browser) {
             }
 
             const BASE64_IMAGE_DATA = Buffer.from(await foundElement.screenshot()).toString('base64');
-            cert.imageUrl = `data:image/png;base64,${BASE64_IMAGE_DATA}`;
+            cert.image = `data:image/png;base64,${BASE64_IMAGE_DATA}`;
 
             console.log("Screenshot taken for a certification.");
 
@@ -224,20 +314,148 @@ async function scrapAccredible(browser: Browser) {
     // Filtering possible null values
     CERTIFICATIONS = CERTIFICATIONS.filter(c => c !== null);
 
+    const ACCREDIBLE_IMAGES_FOLDER = path.join(OUTPUT_FOLDER, "accredible_images");
+
+    //Checking output folder
+    {
+
+        if (await exists(ACCREDIBLE_IMAGES_FOLDER)) {
+            await fs.rm(ACCREDIBLE_IMAGES_FOLDER, { recursive: true });
+        }
+
+        await fs.mkdir(ACCREDIBLE_IMAGES_FOLDER, { recursive: true });
+    }
+
+    //Saving images files.
+
+    const saveImagesPromises = CERTIFICATIONS.map((certification, index) => {
+        if (!certification.image) {
+            return new Promise<void>(resolve => resolve());
+        }
+
+        if (certification.image.startsWith("data:")) {
+
+            return new Promise<void>(async resolve => {
+                let [header, content] = certification.image!!.split(',', 2);
+
+                const extension = header.match(/^data:image\/([a-z]+);base64$/)?.[1];
+                const fileName = `${certification.id}-${index}.${extension}`;
+
+                certification.image = fileName;
+                await fs.writeFile(
+                    path.join(ACCREDIBLE_IMAGES_FOLDER, fileName),
+                    content,
+                    "base64"
+                );
+
+                resolve();
+            });
+
+
+        } else if (certification.image.startsWith("http")) {
+
+            return new Promise<void>(async resolve => {
+
+                const response = await fetch(certification.image as string);
+                const contentType = response.headers.get('content-type') as string;
+
+                const extension = contentType?.match(MIME_TYPE_EXTENSION)?.[1];
+
+                const fileName = `${certification.id}-${index}.${extension}`;
+                const blob = await response.blob()
+
+                certification.image = fileName;
+
+                await fs.writeFile(
+                    path.join(ACCREDIBLE_IMAGES_FOLDER, fileName),
+                    Buffer.from(await blob.arrayBuffer()),
+                    'binary'
+                );
+
+                resolve();
+            });
+
+        }
+    });
+
+    await Promise.all(saveImagesPromises);
+
     console.log("Wallet scrapping finished.");
     console.log(`${CERTIFICATIONS.length} were scrapped.`);
 
-    await fs.writeFile("webscrapping/wallet_badges.json", JSON.stringify(CERTIFICATIONS), 'utf8');
+    await fs.writeFile(
+        path.join(OUTPUT_FOLDER, "wallet_badges.json"),
+        JSON.stringify(CERTIFICATIONS),
+        'utf8'
+    );
 }
+
+// Scrapping Upwork members
+async function scrapUpworkMembers(browser: Browser) {
+
+    //This is a basic scrap, no explanation needed.
+
+    console.log("Starting Upwork scrapping.");
+
+
+    const page = await browser.newPage();
+
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
+    await page.goto(ITSUPPORT_UPWORK, {
+        waitUntil: 'load'
+    });
+
+    await page.waitForSelector(UPWORK_MEMBER_CONTAINER_SELECTOR, { timeout: 90000 });
+
+
+    console.log("Upwork necessary elements are loaded. Scrapping...");
+
+    const MEMBERS_DATA = await page.$$eval(
+
+        UPWORK_MEMBER_CONTAINER_SELECTOR,
+        (elements, { imageSelector, nameSelector }) => {
+
+            return elements.map(memberContainer => {
+                const MEMBER_NAME = memberContainer.querySelector(nameSelector) as HTMLAnchorElement;
+                const MEMBER_IMAGE = memberContainer.querySelector(imageSelector) as HTMLImageElement;
+
+                return {
+                    name: MEMBER_NAME.textContent,
+                    image: MEMBER_IMAGE.src
+                }
+            });
+
+        },
+
+        {
+            imageSelector: UPWORK_MEMBER_IMAGE_SELECTOR,
+            nameSelector: UPWORK_MEMBER_NAME_SELECTOR
+        }
+    )
+
+    console.log(`${MEMBERS_DATA.length} members gathered. Saving file...`);
+
+
+    await fs.writeFile(
+        path.join(OUTPUT_FOLDER, "upwork_members.json"),
+        JSON.stringify(MEMBERS_DATA),
+        'utf8'
+    );
+
+}
+
+let activeBrowser: Browser;
 
 // Main process
 async function main() {
-    await fs.mkdir("webscrapping/", { recursive: true });
+    await fs.mkdir(OUTPUT_FOLDER, { recursive: true });
 
     const browser = await puppeteer.launch({
         headless: execArgv.includes('--headless'),
         slowMo: 0
     });
+
+    activeBrowser = browser;
 
     const processes: Promise<void>[] = [];
 
@@ -249,11 +467,15 @@ async function main() {
     // Verifying the given arguments. If nothing was given, then exit the process.
 
     if (execArgv.includes("--credly")) {
-        startProcess(scrapCredly)
+        startProcess(scrapCredly);
     }
 
     if (execArgv.includes("--accredible")) {
-        startProcess(scrapAccredible)
+        startProcess(scrapAccredible);
+    }
+
+    if (execArgv.includes("--upwork")) {
+        startProcess(scrapUpworkMembers);
     }
 
     if (processes.length <= 0) {
@@ -272,4 +494,11 @@ async function main() {
 
 }
 
-main();
+
+puppeteer.use(StealthPlugin());
+
+main()
+    .catch(async reason => {
+        console.log("Ended scrap with errors:.\n\n", reason);
+        await activeBrowser.close();
+    });
